@@ -2,26 +2,26 @@
   {
     "id": "gq01",
     "question": "SLA xử lý ticket P1 đã thay đổi như thế nào so với phiên bản trước?",
-    "answer": "SLA xử lý ticket P1 đã thay đổi từ phiên bản trước như sau:\n\n- Giá trị hiện tại: Thời gian xử lý và khắc phục (resolution) là 4 giờ.\n- Giá trị trước đó: Thời gian xử lý và khắc phục (resolution) là 6 giờ.\n\nNgoài ra, phiên bản trước (v2025.3) đã thêm quy trình escalation tự động, nhưng không có thay đổi nào khác về thời gian xử lý trong phiên bản này [1], [2].",
+    "answer": "SLA xử lý ticket P1 đã thay đổi từ phiên bản trước như sau:\n\n- Giá trị hiện tại (v2026.1, có hiệu lực từ 2026-01-15): Thời gian xử lý và khắc phục (resolution) là 4 giờ.\n- Giá trị trước đó (v2025.3, có hiệu lực từ 2025-09-01): Thời gian xử lý và khắc phục (resolution) là 6 giờ.\n\nDo đó, thời gian xử lý ticket P1 đã giảm từ 6 giờ xuống 4 giờ trong phiên bản mới [1], [2].",
     "sources": [
       "support/sla-p1-2026.pdf"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:22:19.890922"
+    "timestamp": "2026-04-13T18:13:10.533243"
   },
   {
     "id": "gq02",
     "question": "Khi làm việc remote, tôi phải dùng VPN và được kết nối trên tối đa bao nhiêu thiết bị?",
     "answer": "Khi làm việc remote, bạn phải sử dụng VPN và được kết nối trên tối đa 2 thiết bị cùng lúc [1].",
     "sources": [
+      "hr/leave-policy-2026.pdf",
       "support/helpdesk-faq.md",
-      "it/access-control-sop.md",
-      "hr/leave-policy-2026.pdf"
+      "it/access-control-sop.md"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:22:30.165326"
+    "timestamp": "2026-04-13T18:13:21.337229"
   },
   {
     "id": "gq03",
@@ -32,7 +32,7 @@
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:22:41.204376"
+    "timestamp": "2026-04-13T18:13:32.434214"
   },
   {
     "id": "gq04",
@@ -43,68 +43,68 @@
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:22:51.578579"
+    "timestamp": "2026-04-13T18:13:42.944767"
   },
   {
     "id": "gq05",
     "question": "Contractor từ bên ngoài công ty có thể được cấp quyền Admin Access không? Nếu có, cần bao nhiêu ngày và có yêu cầu đặc biệt gì?",
     "answer": "Không tìm thấy thông tin này trong tài liệu hiện hành, vui lòng liên hệ IT Helpdesk.",
     "sources": [
-      "it/access-control-sop.md",
-      "hr/leave-policy-2026.pdf"
+      "hr/leave-policy-2026.pdf",
+      "it/access-control-sop.md"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:23:01.534328"
+    "timestamp": "2026-04-13T18:13:52.668180"
   },
   {
     "id": "gq06",
     "question": "Lúc 2 giờ sáng xảy ra sự cố P1, on-call engineer cần cấp quyền tạm thời cho một engineer xử lý incident. Quy trình cụ thể như thế nào và quyền này tồn tại bao lâu?",
-    "answer": "Quy trình cấp quyền tạm thời cho engineer trong trường hợp sự cố P1 như sau:\n\n1. On-call IT Admin có thể cấp quyền tạm thời sau khi được Tech Lead phê duyệt bằng lời.\n2. Quyền tạm thời này có thể tồn tại tối đa 24 giờ.\n3. Sau 24 giờ, phải có ticket chính thức hoặc quyền sẽ bị thu hồi tự động.\n4. Mọi quyền tạm thời phải được ghi log vào hệ thống Security Audit [1]. \n\nNếu cần thêm thông tin, vui lòng liên hệ IT Helpdesk.",
+    "answer": "Quy trình cụ thể để cấp quyền tạm thời cho một engineer xử lý incident trong trường hợp khẩn cấp P1 như sau:\n\n1. On-call IT Admin có thể cấp quyền tạm thời (tối đa 24 giờ) sau khi được Tech Lead phê duyệt bằng lời.\n2. Sau 24 giờ, phải có ticket chính thức hoặc quyền sẽ bị thu hồi tự động.\n3. Mọi quyền tạm thời phải được ghi log vào hệ thống Security Audit.\n\nQuyền tạm thời này tồn tại tối đa 24 giờ [1].",
     "sources": [
-      "it/access-control-sop.md",
-      "support/sla-p1-2026.pdf"
+      "support/sla-p1-2026.pdf",
+      "it/access-control-sop.md"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:23:14.373779"
+    "timestamp": "2026-04-13T18:14:06.320167"
   },
   {
     "id": "gq07",
     "question": "Công ty sẽ phạt bao nhiêu nếu team IT vi phạm cam kết SLA P1?",
     "answer": "Không tìm thấy thông tin này trong tài liệu hiện hành, vui lòng liên hệ IT Helpdesk.",
     "sources": [
-      "support/helpdesk-faq.md",
       "it/access-control-sop.md",
+      "support/helpdesk-faq.md",
       "support/sla-p1-2026.pdf"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:23:24.391368"
+    "timestamp": "2026-04-13T18:14:17.663088"
   },
   {
     "id": "gq08",
     "question": "Nhân viên phải báo trước bao nhiêu ngày để xin nghỉ phép năm? Con số này có giống với số ngày cần giấy tờ khi nghỉ ốm không?",
     "answer": "Nhân viên phải báo trước ít nhất 3 ngày làm việc để xin nghỉ phép năm [2]. Số ngày này không giống với số ngày cần giấy tờ khi nghỉ ốm, vì nghỉ ốm yêu cầu thông báo cho Line Manager trước 9:00 sáng ngày nghỉ và nếu nghỉ trên 3 ngày liên tiếp thì cần giấy tờ y tế từ bệnh viện [1].",
     "sources": [
-      "support/helpdesk-faq.md",
-      "hr/leave-policy-2026.pdf"
+      "hr/leave-policy-2026.pdf",
+      "support/helpdesk-faq.md"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:23:35.776987"
+    "timestamp": "2026-04-13T18:14:30.097088"
   },
   {
     "id": "gq09",
     "question": "Mật khẩu tài khoản công ty cần đổi định kỳ không? Nếu có, hệ thống sẽ nhắc nhở trước bao nhiêu ngày và đổi qua đâu?",
-    "answer": "Có, mật khẩu tài khoản công ty cần được thay đổi định kỳ. Cụ thể, mật khẩu phải được thay đổi mỗi 90 ngày. Hệ thống sẽ nhắc nhở người dùng 7 ngày trước khi mật khẩu hết hạn [1].",
+    "answer": "Có, mật khẩu cần thay đổi định kỳ. Mật khẩu phải được thay đổi mỗi 90 ngày. Hệ thống sẽ nhắc nhở 7 ngày trước khi hết hạn [1].",
     "sources": [
-      "support/helpdesk-faq.md",
-      "policy/refund-v4.pdf"
+      "policy/refund-v4.pdf",
+      "support/helpdesk-faq.md"
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:23:47.837545"
+    "timestamp": "2026-04-13T18:14:41.791016"
   },
   {
     "id": "gq10",
@@ -115,6 +115,6 @@
     ],
     "chunks_retrieved": 3,
     "retrieval_mode": "hybrid",
-    "timestamp": "2026-04-13T18:23:58.607525"
+    "timestamp": "2026-04-13T18:14:53.540811"
   }
 ]

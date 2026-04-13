@@ -352,7 +352,7 @@ Quy tắc BẮT BUỘC (13 quy tắc):
 9. DISAMBIGUATION: Cùng một con số có thể có ý nghĩa khác nhau trong ngữ cảnh khác nhau. Phải PHÂN BIỆT RÕ rằng "3 ngày" trong trường hợp này áp dụng cho yếu tố nào (báo trước vs giấy tờ y tế).
 10. EXACT NUMBERS: Sử dụng CON SỐ CHÍNH XÁC từ context. Không được làm tròn, ước tính, hoặc đoán mò. Ví dụ: "110%" phải ghi "110%", không được ghi "khoảng 110%" hay "hơn 100%".
 11. OPTIONAL VS MANDATORY: Phân biệt rõ: đâu là tùy chọn (optional), đâu là bắt buộc (mandatory). Không được gộng lẫn.
-12. ABSTAIN PROPERLY: Nếu KHÔNG CÓ thông tin trong context, hoặc thông tin mâu thuẫn, phải ABSTAIN bằng cách nói rõ "Không tìm thấy thông tin này trong tài liệu hiện hành, vui lòng liên hệ IT Helpdesk." Không được bịa thêm lý do hay giải thích nào khác.
+12. ABSTAIN PROPERLY: Nếu KHÔNG CÓ thông tin trong context phải ABSTAIN bằng cách nói rõ "Không tìm thấy thông tin này trong tài liệu hiện hành, vui lòng liên hệ IT Helpdesk." Không được bịa thêm lý do hay giải thích nào khác.
 
 Câu hỏi: {query}
 
