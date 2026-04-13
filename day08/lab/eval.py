@@ -28,6 +28,18 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from rag_answer import rag_answer, call_llm
 
+def parse_llm_json(response: str) -> Dict:
+    """Helper to parse JSON from LLM output, handling markdown blocks."""
+    cleaned = re.sub(r'```(?:json)?|```', '', response).strip()
+    # Find the JSON block
+    match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+    if match:
+        cleaned = match.group(0)
+    try:
+        return json.loads(cleaned)
+    except Exception as e:
+        return {"score": None, "notes": f"Parse error: {e}. Raw: {response}"}
+
 # =============================================================================
 # CẤU HÌNH
 # =============================================================================
@@ -82,7 +94,7 @@ Rate the faithfulness on a scale of 1 to 5, where:
 4 = Gần như hoàn toàn grounded, 1 chi tiết nhỏ chưa chắc chắn.
 3 = Phần lớn grounded, một số thông tin có thể từ model knowledge.
 2 = Nhiều thông tin không có trong retrieved chunks.
-1 = Câu trả lời không grounded, không có thông tin liên quan
+1 = Câu trả lời không grounded, phần lớn là model bịa (hallucination).
 
 Context:
 {context_text}
@@ -328,6 +340,7 @@ def run_scorecard(
         print(f"\nAverage {metric}: {avg:.2f}" if avg else f"\nAverage {metric}: N/A (chưa chấm)")
 
     return results
+
 
 # =============================================================================
 # A/B COMPARISON
