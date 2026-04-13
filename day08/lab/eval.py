@@ -470,13 +470,84 @@ Generated: {timestamp}
 
 
 # =============================================================================
+# GRADING LOG GENERATOR (SCORING.md)
+# =============================================================================
+
+def generate_grading_log(config: Dict[str, Any]) -> None:
+    """
+    Tự động generate `logs/grading_run.json` theo đúng format thi của SCORING.md
+    nếu file `data/grading_questions.json` tồn tại.
+    """
+    grading_file = Path(__file__).parent / "data" / "grading_questions.json"
+    logs_dir = Path(__file__).parent / "logs"
+    log_output = logs_dir / "grading_run.json"
+
+    if not grading_file.exists():
+        return
+
+    print(f"\n{'='*70}")
+    print("PHÁT HIỆN grading_questions.json — ĐANG CHẠY GRADING LOG...")
+    print('='*70)
+
+    try:
+        with open(grading_file, "r", encoding="utf-8") as f:
+            questions = json.load(f)
+
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_data = []
+
+        for q in questions:
+            print(f"  Grading [{q.get('id', '?')}]: {q.get('question', '')[:50]}...")
+            try:
+                result = rag_answer(
+                    query=q["question"],
+                    retrieval_mode=config.get("retrieval_mode", "hybrid"),
+                    top_k_search=config.get("top_k_search", 10),
+                    top_k_select=config.get("top_k_select", 3),
+                    use_rerank=config.get("use_rerank", True),
+                    verbose=False,
+                )
+                
+                log_data.append({
+                    "id": q.get("id", ""),
+                    "question": q["question"],
+                    "answer": result["answer"],
+                    "sources": result["sources"],
+                    "chunks_retrieved": len(result["chunks_used"]),
+                    "retrieval_mode": result["config"]["retrieval_mode"],
+                    "timestamp": datetime.now().isoformat(),
+                })
+            except Exception as e:
+                print(f"    Lỗi: {e}")
+                log_data.append({
+                    "id": q.get("id", ""),
+                    "question": q["question"],
+                    "answer": f"PIPELINE_ERROR: {e}",
+                    "sources": [],
+                    "chunks_retrieved": 0,
+                    "retrieval_mode": config.get("retrieval_mode", "hybrid"),
+                    "timestamp": datetime.now().isoformat(),
+                })
+
+        with open(log_output, "w", encoding="utf-8") as f:
+            json.dump(log_data, f, ensure_ascii=False, indent=2)
+
+        print(f"\n[THÀNH CÔNG] Grading log đã được tạo tại: {log_output}")
+    except Exception as e:
+        print(f"\n[LỖI GRADING LOG]: {e}")
+
+
+# =============================================================================
 # MAIN — Chạy evaluation
 # =============================================================================
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("Sprint 4: Evaluation & Scorecard")
+    print("Sprint 4: Evaluation & Scorecard (with Auto-Grading)")
     print("=" * 60)
+
+    # 0. CHẠY GRADING LOG NẾU ĐÃ ĐẾN GIỜ THI (17:00)
+    generate_grading_log(config=VARIANT_CONFIG)
 
     # Kiểm tra test questions
     print(f"\nLoading test questions từ: {TEST_QUESTIONS_PATH}")
