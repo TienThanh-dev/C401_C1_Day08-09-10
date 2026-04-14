@@ -57,7 +57,7 @@ def _get_embedding_fn():
     # Option A: OpenAI (text-embedding-3-small) - Ưu tiên hàng đầu nếu có API Key
     try:
         from openai import OpenAI
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
         if api_key and api_key.startswith("sk-"):
             client = OpenAI(api_key=api_key)
             def embed(text: str) -> list:
@@ -96,7 +96,7 @@ def _get_collection():
     client = chromadb.PersistentClient(path=_CHROMA_DB_PATH)
     collection_name = "day09_docs"
     embed_fn = _get_embedding_fn()
-
+    
     should_reindex = False
     try:
         collection = client.get_collection(collection_name)
@@ -110,10 +110,8 @@ def _get_collection():
         # Nếu lỗi (Dimension mismatch hoặc Collection not found), đánh dấu cần reindex
         print(f"⚠️  Phát hiện vấn đề với Collection (Lỗi: {e}). Đang chuẩn bị Self-healing...")
         should_reindex = True
-        try:
-            client.delete_collection(collection_name)
-        except Exception:
-            pass
+        try: client.delete_collection(collection_name)
+        except: pass
 
     if should_reindex:
         collection = client.create_collection(
@@ -126,14 +124,22 @@ def _get_collection():
             for fname in os.listdir(_DATA_DOCS_PATH):
                 if fname.endswith(".txt"):
                     with open(os.path.join(_DATA_DOCS_PATH, fname), "r", encoding="utf-8") as f:
-                        text = f.read()
-                    print(f"   Indexing: {fname}...")
-                    collection.add(
-                        documents=[text],
-                        ids=[fname],
-                        metadatas=[{"source": fname}],
-                        embeddings=[embed_fn(text)]
-                    )
+                        content = f.read()
+                    
+                    # Tối ưu hoá Chunking: Chia nhỏ file theo các đề mục '==='
+                    import re
+                    chunks = re.split(r'\n(?=== )', content)
+                    
+                    for i, chunk in enumerate(chunks):
+                        if not chunk.strip(): continue
+                        chunk_id = f"{fname}_chunk_{i}"
+                        print(f"   Indexing: {chunk_id}...")
+                        collection.add(
+                            documents=[chunk],
+                            ids=[chunk_id],
+                            metadatas=[{"source": fname, "chunk": i}],
+                            embeddings=[embed_fn(chunk)]
+                        )
             print("✅ Tối ưu hoá Self-healing hoàn tất. Dữ liệu đã sẵn sàng.")
         else:
             print(f"❌ Không tìm thấy thư mục {_DATA_DOCS_PATH}.")
@@ -144,6 +150,11 @@ def _get_collection():
 def retrieve_dense(query: str, top_k: int = DEFAULT_TOP_K) -> list:
     """
     Dense retrieval: embed query → query ChromaDB → trả về top_k chunks.
+
+    TODO Sprint 2: Implement phần này.
+    - Dùng _get_embedding_fn() để embed query
+    - Query collection với n_results=top_k
+    - Format result thành list of dict
 
     Returns:
         list of {"text": str, "source": str, "score": float, "metadata": dict}
