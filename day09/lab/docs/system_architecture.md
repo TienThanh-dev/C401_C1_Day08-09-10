@@ -1,7 +1,7 @@
 # System Architecture — Lab Day 09
 
-**Nhóm:** ___________  
-**Ngày:** ___________  
+**Nhóm:** C401-C1  
+**Ngày:** 14-04-2026
 **Version:** 1.0
 
 ---
@@ -12,47 +12,30 @@
 
 **Pattern đã chọn:** Supervisor-Worker  
 **Lý do chọn pattern này (thay vì single agent):**
-
-_________________
+Kiến trúc này tách bạch trách nhiệm rõ rệt. Supervisor có vai trò duy nhất là phân tích context (Risk & Keywords) để định tuyến. Các Worker đóng vai trò là domain expert với logic chuyên biệt cho việc lấy Data, Check Policy, hay Tổng hợp. Nhờ vậy, pipeline minh bạch, dễ trace routing, khi lỗi cũng không lan sang node khác. Khả năng mở rộng được giải quyết triệt để (như việc gắn MCP vào Policy).
 
 ---
 
 ## 2. Sơ đồ Pipeline
 
-> Vẽ sơ đồ pipeline dưới dạng text, Mermaid diagram, hoặc ASCII art.
-> Yêu cầu tối thiểu: thể hiện rõ luồng từ input → supervisor → workers → output.
-
-**Ví dụ (ASCII art):**
-```
-User Request
-     │
-     ▼
-┌──────────────┐
-│  Supervisor  │  ← route_reason, risk_high, needs_tool
-└──────┬───────┘
-       │
-   [route_decision]
-       │
-  ┌────┴────────────────────┐
-  │                         │
-  ▼                         ▼
-Retrieval Worker     Policy Tool Worker
-  (evidence)           (policy check + MCP)
-  │                         │
-  └─────────┬───────────────┘
-            │
-            ▼
-      Synthesis Worker
-        (answer + cite)
-            │
-            ▼
-         Output
-```
-
 **Sơ đồ thực tế của nhóm:**
 
-```
-[NHÓM ĐIỀN VÀO ĐÂY]
+```mermaid
+graph TD
+    User([User Request]) --> Sup[Supervisor Agent]
+    Sup -->|Khẩn cấp / Lỗi| HITL{Human in Loop}
+    HITL --> Ret
+    Sup -->|Keyword: P1, SLA| Ret[Retrieval Worker]
+    Sup -->|Keyword: Hoàn tiền, Policy| Pol[Policy Tool Worker]
+    
+    Pol -->|needs_tool=True| MCP[MCP Server Mock]
+    MCP -.->|search_kb| Pol
+    MCP -.->|get_ticket_info| Pol
+    
+    Ret --> Syn[Synthesis Worker]
+    Pol --> Syn
+    
+    Syn --> Out((Output JSONL))
 ```
 
 ---
@@ -63,37 +46,37 @@ Retrieval Worker     Policy Tool Worker
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **Input** | ___________________ |
+| **Nhiệm vụ** | Phân loại câu hỏi của người dùng và điều hướng sang đúng Worker xử lý dựa trên keywords hoặc LLM routing. |
+| **Input** | `state.task` |
 | **Output** | supervisor_route, route_reason, risk_high, needs_tool |
-| **Routing logic** | ___________________ |
-| **HITL condition** | ___________________ |
+| **Routing logic** | Heuristic fallback regexes (Hoàn tiền, Access) hoặc LLM Zero-shot. |
+| **HITL condition** | Khai báo `risk_high` (2AM, khẩn cấp) + Tồn tại "ERR-", auto pause human review. |
 
 ### Retrieval Worker (`workers/retrieval.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **Embedding model** | ___________________ |
-| **Top-k** | ___________________ |
-| **Stateless?** | Yes / No |
+| **Nhiệm vụ** | Truy vấn DB Vector (Chroma) để lấy chính xác top_k chunks. |
+| **Embedding model** | OpenAI text-embedding-3-small (with all-MiniLM-L6-v2 fallback) |
+| **Top-k** | 3 chunks. |
+| **Stateless?** | Yes |
 
 ### Policy Tool Worker (`workers/policy_tool.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **MCP tools gọi** | ___________________ |
-| **Exception cases xử lý** | ___________________ |
+| **Nhiệm vụ** | Phân tích ngoại lệ chính sách (Sử dụng rule-base bắt buộc) và Fetch mock server data (MCP). |
+| **MCP tools gọi** | `search_kb`, `get_ticket_info`. |
+| **Exception cases xử lý** | Flash Sale, Digital Product / Subscriptions, Activated Product. |
 
 ### Synthesis Worker (`workers/synthesis.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **LLM model** | ___________________ |
-| **Temperature** | ___________________ |
-| **Grounding strategy** | ___________________ |
-| **Abstain condition** | ___________________ |
+| **LLM model** | OpenAI / Gemini Fallbacks. |
+| **Temperature** | 0.1 |
+| **Grounding strategy** | Explicit prompt "CHỈ trả lời dựa vào context cung cấp". |
+| **Abstain condition** | Tự động trả về Abstain Statement kèm theo Constraint Confidence = 0.1 nếu Chunk Length = 0. |
 
 ### MCP Server (`mcp_server.py`)
 
@@ -102,13 +85,11 @@ Retrieval Worker     Policy Tool Worker
 | search_kb | query, top_k | chunks, sources |
 | get_ticket_info | ticket_id | ticket details |
 | check_access_permission | access_level, requester_role | can_grant, approvers |
-| ___________________ | ___________________ | ___________________ |
+| create_ticket | priority, title, description | ticket_id, status |
 
 ---
 
 ## 4. Shared State Schema
-
-> Liệt kê các fields trong AgentState và ý nghĩa của từng field.
 
 | Field | Type | Mô tả | Ai đọc/ghi |
 |-------|------|-------|-----------|
@@ -119,8 +100,7 @@ Retrieval Worker     Policy Tool Worker
 | policy_result | dict | Kết quả kiểm tra policy | policy_tool ghi, synthesis đọc |
 | mcp_tools_used | list | Tool calls đã thực hiện | policy_tool ghi |
 | final_answer | str | Câu trả lời cuối | synthesis ghi |
-| confidence | float | Mức tin cậy | synthesis ghi |
-| ___________________ | ___________________ | ___________________ | ___________________ |
+| confidence | float | Mức tin cậy (Calculate penalty) | synthesis ghi |
 
 ---
 
@@ -129,20 +109,16 @@ Retrieval Worker     Policy Tool Worker
 | Tiêu chí | Single Agent (Day 08) | Supervisor-Worker (Day 09) |
 |----------|----------------------|--------------------------|
 | Debug khi sai | Khó — không rõ lỗi ở đâu | Dễ hơn — test từng worker độc lập |
-| Thêm capability mới | Phải sửa toàn prompt | Thêm worker/MCP tool riêng |
-| Routing visibility | Không có | Có route_reason trong trace |
-| ___________________ | ___________________ | ___________________ |
+| Thêm capability mới | Phải sửa toàn bộ prompt | Chỉ việc gắn thẻ Worker/MCP tool riêng biệt |
+| Routing visibility | Mù mờ logic Prompting LLM | State Node có route_reason trong từng log trace (JSONL) |
 
 **Nhóm điền thêm quan sát từ thực tế lab:**
-
-_________________
+Việc chia tách Node giúp chúng tôi dễ dàng thực thi Abstain Logic tuyệt đối cho Synthesis Worker, trong khi xử lý logic Flash Sale bằng Rule-based ở Policy Worker 1 cách nhẹ nhàng mà không tạo xung đột System Prompts như RAG Mono Day 08.
 
 ---
 
 ## 6. Giới hạn và điểm cần cải tiến
 
-> Nhóm mô tả những điểm hạn chế của kiến trúc hiện tại.
-
-1. ___________________
-2. ___________________
-3. ___________________
+1. Cần tích hợp full HTTP Web Server với MCP Lib framework thật để mở rộng gọi Tool qua RESTful thay vì Module Mock Dispatch nội bộ.
+2. Cụm Supervisor LLM khi dính Rate Limit có xu hướng phải Fallback về Rule, có thể gắn Model Router nhẹ gọn như T5 trên local thay vì RegEx Heuristic.
+3. Độ tin cậy `confidence` chỉ được tính toán bằng heuristic calculation (Chunk distance) thay vì LLM as a Judge.
