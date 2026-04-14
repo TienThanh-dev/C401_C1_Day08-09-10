@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-04-14T16:28:22.502318",
+  "day08_single_agent": {
+    "total_questions": 15,
+    "avg_confidence": 0.0,
+    "avg_latency_ms": 0,
+    "abstain_rate": "?",
+    "multi_hop_accuracy": "?"
+  },
+  "day09_multi_agent": {
+    "total_traces": 30,
+    "routing_distribution": {
+      "retrieval_worker": "11/30 (36%)",
+      "policy_tool_worker": "17/30 (56%)",
+      "human_review": "2/30 (6%)"
+    },
+    "avg_confidence": 0.438,
+    "avg_latency_ms": 8080,
+    "mcp_usage_rate": "17/30 (56%)",
+    "hitl_rate": "2/30 (6%)",
+    "top_sources": [
+      [
+        "it_helpdesk_faq.txt",
+        11
+      ],
+      [
+        "access_control_sop.txt",
+        8
+      ],
+      [
+        "sla_p1_2026.txt",
+        5
+      ],
+      [
+        "policy_refund_v4.txt",
+        5
+      ],
+      [
+        "hr_leave_policy.txt",
+        4
+      ]
+    ]
+  },
+  "analysis": {
+    "routing_visibility": "Day 09 có route_reason cho từng câu → dễ debug hơn Day 08",
+    "latency_delta": "TODO: Điền delta latency thực tế",
+    "accuracy_delta": "TODO: Điền delta accuracy thực tế từ grading",
+    "debuggability": "Multi-agent: có thể test từng worker độc lập. Single-agent: không thể.",
+    "mcp_benefit": "Day 09 có thể extend capability qua MCP không cần sửa core. Day 08 phải hard-code."
+  }
+}
