@@ -17,6 +17,14 @@ Gọi độc lập để test:
 
 import os
 import sys
+import io
+
+# Fix encoding issue for Vietnamese characters on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except AttributeError:
+        pass
 
 # ─────────────────────────────────────────────
 # Worker Contract (xem contracts/worker_contracts.yaml)
@@ -33,23 +41,25 @@ def _get_embedding_fn():
     Trả về embedding function.
     TODO Sprint 1: Implement dùng OpenAI hoặc Sentence Transformers.
     """
-    # Option A: Sentence Transformers (offline, không cần API key)
+    # Option A: OpenAI (text-embedding-3-small) - Ưu tiên hàng đầu nếu có API Key
+    try:
+        from openai import OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key and api_key.startswith("sk-"):
+            client = OpenAI(api_key=api_key)
+            def embed(text: str) -> list:
+                resp = client.embeddings.create(input=text, model="text-embedding-3-small")
+                return resp.data[0].embedding
+            return embed
+    except ImportError:
+        pass
+
+    # Option B: Sentence Transformers (offline fallback)
     try:
         from sentence_transformers import SentenceTransformer
         model = SentenceTransformer("all-MiniLM-L6-v2")
         def embed(text: str) -> list:
             return model.encode([text])[0].tolist()
-        return embed
-    except ImportError:
-        pass
-
-    # Option B: OpenAI (cần API key)
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        def embed(text: str) -> list:
-            resp = client.embeddings.create(input=text, model="text-embedding-3-small")
-            return resp.data[0].embedding
         return embed
     except ImportError:
         pass
@@ -64,20 +74,43 @@ def _get_embedding_fn():
 
 def _get_collection():
     """
-    Kết nối ChromaDB collection.
-    TODO Sprint 2: Đảm bảo collection đã được build từ Step 3 trong README.
+    Kết nối ChromaDB collection. Tự động index nếu trống.
     """
     import chromadb
     client = chromadb.PersistentClient(path="./chroma_db")
+    collection_name = "day09_docs"
+    
     try:
-        collection = client.get_collection("day09_docs")
+        collection = client.get_collection(collection_name)
+        if collection.count() == 0:
+            raise Exception("Collection empty")
     except Exception:
-        # Auto-create nếu chưa có
+        # Tự động tạo và index nếu chưa có data
         collection = client.get_or_create_collection(
-            "day09_docs",
+            collection_name,
             metadata={"hnsw:space": "cosine"}
         )
-        print(f"⚠️  Collection 'day09_docs' chưa có data. Chạy index script trong README trước.")
+        print(f"⚠️  Phát hiện Collection '{collection_name}' trống. Đang tự động Indexing dữ liệu docs...")
+        
+        # Logic tự động Indexing (Self-healing)
+        docs_dir = "./data/docs"
+        if os.path.exists(docs_dir):
+            embed_fn = _get_embedding_fn()
+            for fname in os.listdir(docs_dir):
+                if fname.endswith(".txt"):
+                    with open(os.path.join(docs_dir, fname), "r", encoding="utf-8") as f:
+                        text = f.read()
+                    print(f"   Indexing: {fname}...")
+                    collection.add(
+                        documents=[text],
+                        ids=[fname],
+                        metadatas=[{"source": fname}],
+                        embeddings=[embed_fn(text)]
+                    )
+            print("✅ Tự động Indexing hoàn tất.")
+        else:
+            print(f"❌ Không tìm thấy thư mục {docs_dir}. Vui lòng kiểm tra lại cấu trúc folder.")
+            
     return collection
 
 
@@ -195,7 +228,7 @@ if __name__ == "__main__":
     ]
 
     for query in test_queries:
-        print(f"\n▶ Query: {query}")
+        print(f"\n| Query: {query}")
         result = run({"task": query})
         chunks = result.get("retrieved_chunks", [])
         print(f"  Retrieved: {len(chunks)} chunks")

@@ -17,6 +17,15 @@ Gọi độc lập để test:
 """
 
 import os
+import sys
+import io
+
+# Fix encoding issue for Vietnamese characters on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except AttributeError:
+        pass
 
 WORKER_NAME = "synthesis_worker"
 
