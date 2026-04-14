@@ -29,9 +29,18 @@ Chạy thử:
 """
 
 import os
+import sys
+import io
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+# Fix encoding issue for Vietnamese characters on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except AttributeError:
+        pass
 
 
 # ─────────────────────────────────────────────
@@ -351,14 +360,14 @@ if __name__ == "__main__":
         print(f"  Result: {result}")
 
     # 3. Test get_ticket_info
-    print("\n🎫 Test: get_ticket_info")
+    print("\n| Test: get_ticket_info")
     ticket = dispatch_tool("get_ticket_info", {"ticket_id": "P1-LATEST"})
     print(f"  Ticket: {ticket.get('ticket_id')} | {ticket.get('priority')} | {ticket.get('status')}")
     if ticket.get("notifications_sent"):
         print(f"  Notifications: {ticket['notifications_sent']}")
 
     # 4. Test check_access_permission
-    print("\n🔐 Test: check_access_permission (Level 3, emergency)")
+    print("\n| Test: check_access_permission (Level 3, emergency)")
     perm = dispatch_tool("check_access_permission", {
         "access_level": 3,
         "requester_role": "contractor",
@@ -370,7 +379,7 @@ if __name__ == "__main__":
     print(f"  notes: {perm.get('notes')}")
 
     # 5. Test invalid tool
-    print("\n❌ Test: invalid tool")
+    print("\n| Test: invalid tool")
     err = dispatch_tool("nonexistent_tool", {})
     print(f"  Error: {err.get('error')}")
 

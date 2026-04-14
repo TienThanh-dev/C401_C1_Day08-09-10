@@ -18,7 +18,15 @@ Gọi độc lập để test:
 
 import os
 import sys
+import io
 from typing import Optional
+
+# Fix encoding issue for Vietnamese characters on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except AttributeError:
+        pass
 
 WORKER_NAME = "policy_tool_worker"
 
@@ -248,7 +256,7 @@ if __name__ == "__main__":
     ]
 
     for tc in test_cases:
-        print(f"\n▶ Task: {tc['task'][:70]}...")
+        print(f"\n| Task: {tc['task'][:70]}...")
         result = run(tc.copy())
         pr = result.get("policy_result", {})
         print(f"  policy_applies: {pr.get('policy_applies')}")
