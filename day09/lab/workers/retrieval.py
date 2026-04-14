@@ -18,6 +18,10 @@ Gọi độc lập để test:
 import os
 import sys
 import io
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Fix encoding issue for Vietnamese characters on Windows
 if sys.stdout.encoding.lower() != 'utf-8':
@@ -25,6 +29,15 @@ if sys.stdout.encoding.lower() != 'utf-8':
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     except AttributeError:
         pass
+
+# ─────────────────────────────────────────────
+# Absolute paths — luôn resolve từ project root (lab/)
+# Hoạt động đúng dù chạy từ bất kỳ thư mục nào
+# ─────────────────────────────────────────────
+
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # workers/ → lab/
+_CHROMA_DB_PATH = os.path.join(_PROJECT_ROOT, "chroma_db")
+_DATA_DOCS_PATH = os.path.join(_PROJECT_ROOT, "data", "docs")
 
 # ─────────────────────────────────────────────
 # Worker Contract (xem contracts/worker_contracts.yaml)
@@ -74,31 +87,45 @@ def _get_embedding_fn():
 
 def _get_collection():
     """
-    Kết nối ChromaDB collection. Tự động index nếu trống.
+    Kết nối ChromaDB collection. 
+    Tối ưu hoá Self-healing: 
+    1. Kiểm tra nếu trống -> Auto Index.
+    2. Kiểm tra nếu sai Dimension (do đổi model Embedding) -> Xoá và Re-index.
     """
     import chromadb
-    client = chromadb.PersistentClient(path="./chroma_db")
+    client = chromadb.PersistentClient(path=_CHROMA_DB_PATH)
     collection_name = "day09_docs"
-    
+    embed_fn = _get_embedding_fn()
+
+    should_reindex = False
     try:
         collection = client.get_collection(collection_name)
         if collection.count() == 0:
-            raise Exception("Collection empty")
-    except Exception:
-        # Tự động tạo và index nếu chưa có data
-        collection = client.get_or_create_collection(
+            should_reindex = True
+        else:
+            # Test query để kiểm tra Dimension Mismatch
+            test_embed = embed_fn("test")
+            collection.query(query_embeddings=[test_embed], n_results=1)
+    except Exception as e:
+        # Nếu lỗi (Dimension mismatch hoặc Collection not found), đánh dấu cần reindex
+        print(f"⚠️  Phát hiện vấn đề với Collection (Lỗi: {e}). Đang chuẩn bị Self-healing...")
+        should_reindex = True
+        try:
+            client.delete_collection(collection_name)
+        except Exception:
+            pass
+
+    if should_reindex:
+        collection = client.create_collection(
             collection_name,
             metadata={"hnsw:space": "cosine"}
         )
-        print(f"⚠️  Phát hiện Collection '{collection_name}' trống. Đang tự động Indexing dữ liệu docs...")
-        
-        # Logic tự động Indexing (Self-healing)
-        docs_dir = "./data/docs"
-        if os.path.exists(docs_dir):
-            embed_fn = _get_embedding_fn()
-            for fname in os.listdir(docs_dir):
+        print(f"🚀 Đang tối ưu hoá Self-healing: Tự động Indexing dữ liệu từ {_DATA_DOCS_PATH}...")
+
+        if os.path.exists(_DATA_DOCS_PATH):
+            for fname in os.listdir(_DATA_DOCS_PATH):
                 if fname.endswith(".txt"):
-                    with open(os.path.join(docs_dir, fname), "r", encoding="utf-8") as f:
+                    with open(os.path.join(_DATA_DOCS_PATH, fname), "r", encoding="utf-8") as f:
                         text = f.read()
                     print(f"   Indexing: {fname}...")
                     collection.add(
@@ -107,10 +134,10 @@ def _get_collection():
                         metadatas=[{"source": fname}],
                         embeddings=[embed_fn(text)]
                     )
-            print("✅ Tự động Indexing hoàn tất.")
+            print("✅ Tối ưu hoá Self-healing hoàn tất. Dữ liệu đã sẵn sàng.")
         else:
-            print(f"❌ Không tìm thấy thư mục {docs_dir}. Vui lòng kiểm tra lại cấu trúc folder.")
-            
+            print(f"❌ Không tìm thấy thư mục {_DATA_DOCS_PATH}.")
+
     return collection
 
 
@@ -118,15 +145,9 @@ def retrieve_dense(query: str, top_k: int = DEFAULT_TOP_K) -> list:
     """
     Dense retrieval: embed query → query ChromaDB → trả về top_k chunks.
 
-    TODO Sprint 2: Implement phần này.
-    - Dùng _get_embedding_fn() để embed query
-    - Query collection với n_results=top_k
-    - Format result thành list of dict
-
     Returns:
         list of {"text": str, "source": str, "score": float, "metadata": dict}
     """
-    # TODO: Implement dense retrieval
     embed = _get_embedding_fn()
     query_embedding = embed(query)
 
