@@ -17,9 +17,17 @@ Outputs:
 import json
 import os
 import sys
+import io
 import argparse
 from datetime import datetime
 from typing import Optional
+
+# Fix encoding issue for Vietnamese characters on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except AttributeError:
+        pass
 
 # Import graph
 sys.path.insert(0, os.path.dirname(__file__))
@@ -40,7 +48,7 @@ def run_test_questions(questions_file: str = "data/test_questions.json") -> list
     with open(questions_file, encoding="utf-8") as f:
         questions = json.load(f)
 
-    print(f"\n📋 Running {len(questions)} test questions from {questions_file}")
+    print(f"\n| Running {len(questions)} test questions from {questions_file}")
     print("=" * 60)
 
     results = []
@@ -56,7 +64,7 @@ def run_test_questions(questions_file: str = "data/test_questions.json") -> list
 
             # Save individual trace
             trace_file = save_trace(result, f"artifacts/traces")
-            print(f"  ✓ route={result.get('supervisor_route', '?')}, "
+            print(f"  | route={result.get('supervisor_route', '?')}, "
                   f"conf={result.get('confidence', 0):.2f}, "
                   f"{result.get('latency_ms', 0)}ms")
 
@@ -71,7 +79,7 @@ def run_test_questions(questions_file: str = "data/test_questions.json") -> list
             })
 
         except Exception as e:
-            print(f"  ✗ ERROR: {e}")
+            print(f"  X ERROR: {e}")
             results.append({
                 "id": q_id,
                 "question": question_text,
@@ -79,7 +87,7 @@ def run_test_questions(questions_file: str = "data/test_questions.json") -> list
                 "result": None,
             })
 
-    print(f"\n✅ Done. {sum(1 for r in results if r.get('result'))} / {len(results)} succeeded.")
+    print(f"\n[OK] Done. {sum(1 for r in results if r.get('result'))} / {len(results)} succeeded.")
     return results
 
 
@@ -96,7 +104,7 @@ def run_grading_questions(questions_file: str = "data/grading_questions.json") -
         path tới grading_run.jsonl
     """
     if not os.path.exists(questions_file):
-        print(f"❌ {questions_file} chưa được public (sau 17:00 mới có).")
+        print(f"[X] {questions_file} chưa được public (sau 17:00 mới có).")
         return ""
 
     with open(questions_file, encoding="utf-8") as f:
@@ -105,7 +113,7 @@ def run_grading_questions(questions_file: str = "data/grading_questions.json") -
     os.makedirs("artifacts", exist_ok=True)
     output_file = "artifacts/grading_run.jsonl"
 
-    print(f"\n🎯 Running GRADING questions — {len(questions)} câu")
+    print(f"\n[GRADING START] Running GRADING questions — {len(questions)} câu")
     print(f"   Output → {output_file}")
     print("=" * 60)
 
@@ -131,7 +139,7 @@ def run_grading_questions(questions_file: str = "data/grading_questions.json") -
                     "latency_ms": result.get("latency_ms"),
                     "timestamp": datetime.now().isoformat(),
                 }
-                print(f"  ✓ route={record['supervisor_route']}, conf={record['confidence']:.2f}")
+                print(f"  | route={record['supervisor_route']}, conf={record['confidence']:.2f}")
             except Exception as e:
                 record = {
                     "id": q_id,
@@ -147,11 +155,11 @@ def run_grading_questions(questions_file: str = "data/grading_questions.json") -
                     "latency_ms": None,
                     "timestamp": datetime.now().isoformat(),
                 }
-                print(f"  ✗ ERROR: {e}")
+                print(f"  X ERROR: {e}")
 
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    print(f"\n✅ Grading log saved → {output_file}")
+    print(f"\n[OK] Grading log saved → {output_file}")
     return output_file
 
 
@@ -185,7 +193,7 @@ def analyze_traces(traces_dir: str = "artifacts/traces") -> dict:
 
     traces = []
     for fname in trace_files:
-        with open(os.path.join(traces_dir, fname)) as f:
+        with open(os.path.join(traces_dir, fname), encoding="utf-8") as f:
             traces.append(json.load(f))
 
     # Compute metrics
@@ -260,7 +268,7 @@ def compare_single_vs_multi(
     }
 
     if day08_results_file and os.path.exists(day08_results_file):
-        with open(day08_results_file) as f:
+        with open(day08_results_file, encoding="utf-8") as f:
             day08_baseline = json.load(f)
 
     comparison = {
