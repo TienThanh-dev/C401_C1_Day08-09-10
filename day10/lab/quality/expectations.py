@@ -2,6 +2,12 @@
 Expectation suite đơn giản (không bắt buộc Great Expectations).
 
 Sinh viên có thể thay bằng GE / pydantic / custom — miễn là có halt có kiểm soát.
+
+Mở rộng:
+  E7: unique_chunk_id — không cho phép chunk_id trùng (halt).
+      metric_impact: hash collision hoặc logic clean sai → halt trước embed.
+  E8: no_pii_in_cleaned — cảnh báo nếu còn PII sau khi mask_pii chạy (warn).
+      metric_impact: inject có email/SĐT không mask → pii_remaining_count > 0.
 """
 
 from __future__ import annotations
@@ -17,6 +23,10 @@ class ExpectationResult:
     passed: bool
     severity: str  # "warn" | "halt"
     detail: str
+
+
+# Tái dùng pattern PII từ cleaning_rules để đảm bảo nhất quán
+_PII_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b|\b0\d{9,10}\b")
 
 
 def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[ExpectationResult], bool]:
@@ -109,6 +119,39 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
             ok6,
             "halt",
             f"violations={len(bad_hr_annual)}",
+        )
+    )
+
+    # E7 (MỚI): chunk_id phải duy nhất trong tập cleaned trước embed.
+    # severity=halt vì chunk_id trùng → upsert Chroma ghi đè chunk không liên quan,
+    # làm sai lệch kết quả retrieval mà không có cảnh báo runtime nào.
+    # metric_impact: hash collision hoặc logic stable_chunk_id sai → halt_count > 0.
+    chunk_ids = [r.get("chunk_id", "") for r in cleaned_rows]
+    duplicate_ids = {cid for cid in chunk_ids if chunk_ids.count(cid) > 1}
+    ok7 = len(duplicate_ids) == 0
+    results.append(
+        ExpectationResult(
+            "unique_chunk_id",
+            ok7,
+            "halt",
+            f"duplicate_chunk_ids={len(duplicate_ids)}",
+        )
+    )
+
+    # E8 (MỚI): không còn PII (email/SĐT) trong chunk_text sau khi mask_pii đã chạy.
+    # severity=warn (không halt) vì PII trong data lab không phải rủi ro thực tế,
+    # nhưng cần cảnh báo để team biết rule mask_pii hoạt động đúng không.
+    # metric_impact: inject chunk có email/SĐT bỏ qua mask → pii_remaining_count > 0.
+    pii_remaining = [
+        r for r in cleaned_rows if _PII_RE.search(r.get("chunk_text") or "")
+    ]
+    ok8 = len(pii_remaining) == 0
+    results.append(
+        ExpectationResult(
+            "no_pii_in_cleaned",
+            ok8,
+            "warn",
+            f"pii_remaining_count={len(pii_remaining)}",
         )
     )
 
