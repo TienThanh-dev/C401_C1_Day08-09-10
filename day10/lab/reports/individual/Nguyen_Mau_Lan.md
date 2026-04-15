@@ -1,10 +1,7 @@
-import os
-
-# Content for the report based on the improved version
-report_content = """# Báo cáo cá nhân — Lab Day 10: Data Pipeline & Observability
+# Báo cáo cá nhân
 
 **Họ và tên:** Nguyễn Mậu Lân  
-**Vai trò:** Quality Specialist (Nhóm C401_C1)  
+**Vai trò:** Quality Specialist 
 **Ngày nộp:** 2026-04-15  
 **Độ dài:** ~480 từ
 
