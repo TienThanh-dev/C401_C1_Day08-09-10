@@ -40,6 +40,29 @@ QUAR_DIR = ART / "quarantine"
 CLEAN_DIR = ART / "cleaned"
 
 
+def _build_embedding_fn():
+    """Chọn embedding backend dựa trên cấu hình .env.
+
+    Ưu tiên OpenAI nếu OPENAI_API_KEY có và EMBEDDING_MODEL không phải model local.
+    Fallback: SentenceTransformer (cho local/offline).
+    """
+    try:
+        from chromadb.utils import embedding_functions
+    except ImportError as e:
+        raise ImportError("pip install chromadb") from e
+
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    model_name = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+
+    # Dùng OpenAI khi có API key và model không phải HuggingFace model
+    if api_key and not model_name.startswith("all-"):
+        return embedding_functions.OpenAIEmbeddingFunction(
+            api_key=api_key,
+            model_name=model_name,
+        )
+    return embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
+
+
 def _log(path: Path, line: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
@@ -58,7 +81,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         p.mkdir(parents=True, exist_ok=True)
 
     def log(msg: str) -> None:
-        print(msg)
+        try:
+            print(msg)
+        except UnicodeEncodeError:
+            # Fallback for Windows consoles with limited encodings
+            print(msg.encode(sys.stdout.encoding or "utf-8", errors="replace").decode(sys.stdout.encoding or "utf-8"))
         _log(log_path, msg)
 
     rows = load_raw_csv(raw_path)
@@ -88,7 +115,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         log("PIPELINE_HALT: expectation suite failed (halt).")
         return 2
     if halt and args.skip_validate:
-        log("WARN: expectation failed but --skip-validate → tiếp tục embed (chỉ dùng cho demo Sprint 3).")
+        log("WARN: expectation failed but --skip-validate -> tiếp tục embed (chỉ dùng cho demo Sprint 3).")
 
     # Embed
     embed_ok = cmd_embed_internal(
@@ -131,16 +158,14 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_embed_internal(cleaned_csv: Path, *, run_id: str, log) -> bool:
     try:
         import chromadb
-        from chromadb.utils import embedding_functions
     except ImportError:
         log("ERROR: chromadb chưa cài. pip install -r requirements.txt")
         return False
 
     db_path = os.environ.get("CHROMA_DB_PATH", str(ROOT / "chroma_db"))
     collection_name = os.environ.get("CHROMA_COLLECTION", "day10_kb")
-    model_name = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
-    from transform.cleaning_rules import load_raw_csv as load_csv  # same loader
+    from transform.cleaning_rules import load_raw_csv as load_csv
 
     rows = load_csv(cleaned_csv)
     if not rows:
@@ -148,7 +173,7 @@ def cmd_embed_internal(cleaned_csv: Path, *, run_id: str, log) -> bool:
         return True
 
     client = chromadb.PersistentClient(path=db_path)
-    emb = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
+    emb = _build_embedding_fn()
     col = client.get_or_create_collection(name=collection_name, embedding_function=emb)
 
     ids = [r["chunk_id"] for r in rows]
