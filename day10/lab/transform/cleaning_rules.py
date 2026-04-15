@@ -3,15 +3,25 @@ Cleaning rules — raw export → cleaned rows + quarantine.
 
 Baseline gồm các failure mode mở rộng (allowlist doc_id, parse ngày, HR stale version).
 Sinh viên thêm ≥3 rule mới: mỗi rule phải ghi `metric_impact` (xem README — chống trivial).
+
+Mở rộng:
+  Rule mới 1: mask_pii — ẩn email/SĐT (metric_impact: pii_masked_count)
+  Rule mới 2: normalize_unicode — NFC + strip BOM/ZWSP (metric_impact: unicode_normalized_count)
+  Rule mới 3: dynamic_hr_cutoff — đọc cutoff từ env (metric_impact: quarantine_records thay đổi)
+  Pydantic CleanedRow — validate schema sau clean (Distinction-a, Bonus +2)
 """
 
 from __future__ import annotations
 
 import csv
 import hashlib
+import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+from pydantic import BaseModel, Field, ValidationError
 
 # Khớp export hợp lệ trong lab (mở rộng khi nhóm thêm doc mới — phải đồng bộ contract).
 ALLOWED_DOC_IDS = frozenset(
@@ -25,6 +35,10 @@ ALLOWED_DOC_IDS = frozenset(
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _DMY_SLASH = re.compile(r"^(\d{2})/(\d{2})/(\d{4})$")
+
+# Rule mới 1: PII patterns (email + SĐT Việt Nam)
+_EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b")
+_PHONE_VN_RE = re.compile(r"\b0\d{9,10}\b")
 
 
 def _norm_text(s: str) -> str:
@@ -53,6 +67,38 @@ def _normalize_effective_date(raw: str) -> Tuple[str, str]:
     return "", "invalid_effective_date_format"
 
 
+class CleanedRow(BaseModel):
+    """Pydantic model — validate schema cleaned row (Distinction-a, Bonus +2)."""
+
+    chunk_id: str = Field(min_length=1)
+    doc_id: str = Field(min_length=1)
+    chunk_text: str = Field(min_length=8)
+    effective_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    exported_at: str = ""
+
+
+def _mask_pii(text: str) -> str:
+    """
+    Rule mới 1: Ẩn email và SĐT Việt Nam trong chunk_text.
+
+    metric_impact: Trên inject chứa PII → chunk_text có marker [EMAIL_MASKED]
+    hoặc [PHONE_MASKED], chứng minh rule hoạt động.
+    """
+    result = _EMAIL_RE.sub("[EMAIL_MASKED]", text)
+    return _PHONE_VN_RE.sub("[PHONE_MASKED]", result)
+
+
+def _normalize_unicode(text: str) -> str:
+    """
+    Rule mới 2: Chuẩn hóa Unicode NFC + loại BOM/zero-width space.
+
+    metric_impact: Trên inject chứa BOM (\\ufeff) hoặc ZWSP (\\u200b)
+    → text thay đổi hoặc trở thành rỗng → quarantine_records tăng.
+    """
+    cleaned = text.replace("\ufeff", "").replace("\u200b", "")
+    return unicodedata.normalize("NFC", cleaned)
+
+
 def load_raw_csv(path: Path) -> List[Dict[str, str]]:
     rows: List[Dict[str, str]] = []
     with path.open(encoding="utf-8", newline="") as f:
@@ -70,22 +116,31 @@ def clean_rows(
     """
     Trả về (cleaned, quarantine).
 
-    Baseline (mở rộng theo narrative Day 10):
-    1) Quarantine: doc_id không thuộc allowlist (export lạ / catalog sai).
+    Baseline:
+    1) Quarantine: doc_id không thuộc allowlist.
     2) Chuẩn hoá effective_date sang YYYY-MM-DD; quarantine nếu không parse được.
-    3) Quarantine: chunk hr_leave_policy có effective_date < 2026-01-01 (bản HR cũ / conflict version).
-    4) Quarantine: chunk_text rỗng hoặc effective_date rỗng sau chuẩn hoá.
+    3) Quarantine: hr_leave_policy có effective_date < cutoff (đọc từ env).
+    4) Quarantine: chunk_text rỗng sau normalize.
     5) Loại trùng nội dung chunk_text (giữ bản đầu).
-    6) Fix stale refund: policy_refund_v4 chứa '14 ngày làm việc' → 7 ngày.
+    6) Fix stale refund: policy_refund_v4 '14 ngày làm việc' → 7 ngày.
+
+    Mở rộng:
+    7) normalize_unicode — NFC + strip BOM/ZWSP trước mọi xử lý text.
+    8) mask_pii — ẩn email/SĐT sau khi fix refund.
+    9) dynamic_hr_cutoff — cutoff HR đọc từ HR_LEAVE_MIN_EFFECTIVE_DATE env.
+    10) Pydantic CleanedRow — validate schema trước khi đưa vào cleaned.
     """
     quarantine: List[Dict[str, Any]] = []
     seen_text: set[str] = set()
     cleaned: List[Dict[str, Any]] = []
     seq = 0
 
+    # Rule mới 3: đọc cutoff từ env thay vì hard-code (Distinction-d)
+    hr_cutoff = os.environ.get("HR_LEAVE_MIN_EFFECTIVE_DATE", "2026-01-01")
+
     for raw in rows:
         doc_id = raw.get("doc_id", "")
-        text = raw.get("chunk_text", "")
+        text = _normalize_unicode(raw.get("chunk_text", ""))  # Rule mới 2
         eff_raw = raw.get("effective_date", "")
         exported_at = raw.get("exported_at", "")
 
@@ -101,7 +156,7 @@ def clean_rows(
             quarantine.append({**raw, "reason": eff_err, "effective_date_raw": eff_raw})
             continue
 
-        if doc_id == "hr_leave_policy" and eff_norm < "2026-01-01":
+        if doc_id == "hr_leave_policy" and eff_norm < hr_cutoff:  # Rule mới 3
             quarantine.append(
                 {
                     **raw,
@@ -130,16 +185,26 @@ def clean_rows(
                 )
                 fixed_text += " [cleaned: stale_refund_window]"
 
+        # Rule mới 1: ẩn PII (email, SĐT)
+        fixed_text = _mask_pii(fixed_text)
+
         seq += 1
-        cleaned.append(
-            {
-                "chunk_id": _stable_chunk_id(doc_id, fixed_text, seq),
-                "doc_id": doc_id,
-                "chunk_text": fixed_text,
-                "effective_date": eff_norm,
-                "exported_at": exported_at or "",
-            }
-        )
+        row_data = {
+            "chunk_id": _stable_chunk_id(doc_id, fixed_text, seq),
+            "doc_id": doc_id,
+            "chunk_text": fixed_text,
+            "effective_date": eff_norm,
+            "exported_at": exported_at or "",
+        }
+
+        # Pydantic validate — Distinction-a: schema gate trước khi embed
+        try:
+            CleanedRow(**row_data)
+        except ValidationError as e:
+            quarantine.append({**raw, "reason": f"pydantic_validation_error: {e}"})
+            continue
+
+        cleaned.append(row_data)
 
     return cleaned, quarantine
 
