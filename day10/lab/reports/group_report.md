@@ -18,7 +18,7 @@
 
 ## 1. Pipeline tổng quan (180 từ)
 
-Hệ thống pipeline Day 10 đại diện cho hạ tầng Ingestion mạnh mẽ, đóng vai trò "người gác cổng" dữ liệu trước khi nạp vào Vector Store phục vụ Agent. Nguồn dữ liệu thô (raw) là file CSV kết hợp từ hệ export nguồn và các bản ghi injection để kiểm thử. Trong phiên bản chạy chuẩn (`clean-run`), nhóm nạp **11 bản ghi**, bao gồm 10 bản ghi chính sách gốc và 1 bản ghi chứa thông tin cá nhân (PII) được thêm vào để kiểm tra tính năng bảo mật.
+Hệ thống pipeline Day 10 đại diện cho hạ tầng Ingestion mạnh mẽ, đóng vai trò "người gác cổng" dữ liệu trước khi nạp vào Vector Store phục vụ Agent. Nguồn dữ liệu thô (raw) là file CSV kết hợp từ hệ export nguồn. Trong phiên bản chạy chuẩn (`clean-run`), nhóm nạp **10 bản ghi**, bao gồm các chính sách hoàn tiền, SLA hỗ trợ khách hàng và chính sách nhân sự.
 
 **Luồng xử lý chính:**
 1. **Ingest:** Load dữ liệu thô và gắn `run_id` duy nhất cho toàn bộ chu trình xử lý.
@@ -54,11 +54,11 @@ Dưới đây là số liệu thống kê thực tế đo được từ các lư
 
 | Rule / Expectation mới | Trước (số liệu) | Sau / khi inject (số liệu) | Chứng cứ (log / CSV) |
 |-------------------------|-----------------|---------------------------|-----------------------|
-| `mask_pii` | 0 masked | **2 masked** (email & phone) | `cleaned_clean-run.csv` dòng 8 |
+| `mask_pii` | 0 masked | **0 masked** | `cleaned_clean-run.csv` |
 | `dynamic_hr_cutoff` | 10 dòng lọt | **4 dòng bị loại** | `run_clean-run.log`: quarantine=4 |
 | `pydantic_validation` | N/A | 0 violations (pass) | `run_clean-run.log` exit 0 |
 | `unique_chunk_id` (E7) | N/A | 0 duplicate | `run_clean-run.log`: OK |
-| `no_pii_in_cleaned` (E8)| 1 row PII | **0 row remaining** | `run_clean-run.log`: OK (warn 0) |
+| `no_pii_in_cleaned` (E8)| 0 row PII | **0 row remaining** | `run_clean-run.log`: OK (warn 0) |
 
 ---
 
@@ -73,7 +73,7 @@ Nhóm đã sử dụng kịch bản **Sprint 3 (Inject corruption)** để chứ
 2. **Scenario `clean-run`:** Nhờ Cleaning Rule số 6 hoạt động, đoạn văn được sửa thành **"7 ngày làm việc [cleaned: stale_refund_window]"**. Eval retrieval ghi nhận `hits_forbidden: no` và câu trả lời top-1 hoàn toàn chính xác theo chính sách v4 hiện hành.
 
 **Bằng chứng định lượng thực tế:**
-- file: `artifacts/eval/after_inject_bad.csv` -> `hits_forbidden: yes`
+- file: `artifacts/eval/grading_run.jsonl` -> `hits_forbidden: false` (sau khi fix)
 - file: `artifacts/eval/after_clean.csv` -> `hits_forbidden: no`
 
 **Merit Evidence:** Câu hỏi `q_leave_version` đạt `top1_doc_matches: yes` trong clean-run, xác nhận rule lọc chính sách HR cũ (2025) đã hoạt động hoàn hảo, chỉ giữ lại bản 2026.
@@ -85,7 +85,7 @@ Nhóm đã sử dụng kịch bản **Sprint 3 (Inject corruption)** để chứ
 Nhóm thiết lập SLA Freshness cho dữ liệu Ingest là **24 giờ**.
 
 - **Thực tế:** Kết quả trả về `FAIL`.
-- **Phân tích:** `ingest_lag_hours ≈ 121.2h`. Do file nguồn mẫu gốc có mốc `exported_at = 2026-04-10`, trong khi thời gian pipeline chạy là `2026-04-15`.
+- **Phân tích:** `ingest_lag_hours ≈ 122.6h`. Do file nguồn mẫu gốc có mốc `exported_at = 2026-04-10`, trong khi thời gian pipeline chạy là `2026-04-15`.
 - **Giải pháp xử lý:** Trong Runbook (Incident 1), nhóm đã ghi nhận đây là hành vi **expected** với dữ liệu lab. Tuy nhiên, chỉ số `publish_lag_hours = 0.0` lại cho thấy trạng thái index trong ChromaDB là cực kỳ "tươi", vừa được cập nhật ngay lúc đó. Điều này giúp nhóm phân biệt rõ ràng giữa "lỗi do nguồn dữ liệu chậm" và "lỗi do pipeline ngưng trệ".
 
 ---
