@@ -52,10 +52,16 @@ def main() -> int:
     questions = json.loads(qpath.read_text(encoding="utf-8"))
     db_path = os.environ.get("CHROMA_DB_PATH", str(ROOT / "chroma_db"))
     collection_name = os.environ.get("CHROMA_COLLECTION", "day10_kb")
+
+    from chromadb.utils import embedding_functions
+    api_key = os.environ.get("OPENAI_API_KEY", "")
     model_name = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    if api_key and not model_name.startswith("all-"):
+        emb = embedding_functions.OpenAIEmbeddingFunction(api_key=api_key, model_name=model_name)
+    else:
+        emb = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
 
     client = chromadb.PersistentClient(path=db_path)
-    emb = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
     try:
         col = client.get_collection(name=collection_name, embedding_function=emb)
     except Exception as e:
