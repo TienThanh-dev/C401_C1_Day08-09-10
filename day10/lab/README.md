@@ -18,6 +18,39 @@ Vector store và agent Day 09 chỉ ổn nếu **pipeline ingest → clean → v
 
 ---
 
+## Quick Start — Nhóm C401-C1
+
+**Một lệnh chạy cả pipeline end-to-end:**
+
+```bash
+python etl_pipeline.py run --run-id clean-run
+```
+
+**Kiểm tra freshness sau khi chạy:**
+
+```bash
+python etl_pipeline.py freshness --manifest artifacts/manifests/manifest_clean-run.json
+```
+
+**Eval retrieval (before/after injection):**
+
+```bash
+python eval_retrieval.py --out artifacts/eval/after_clean.csv
+```
+
+**Inject corruption để demo before/after:**
+
+```bash
+python etl_pipeline.py run --run-id inject-bad --no-refund-fix --skip-validate
+python eval_retrieval.py --out artifacts/eval/after_inject_bad.csv
+```
+
+**Grading (chạy sau khi có `data/grading_questions.json`):**
+
+```bash
+python grading_run.py --out artifacts/eval/grading_run.jsonl
+```
+
 ## Mục tiêu học tập
 
 | Mục tiêu | Sprint |
